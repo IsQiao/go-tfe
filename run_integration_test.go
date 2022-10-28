@@ -526,6 +526,54 @@ func TestRunsForceCancel(t *testing.T) {
 	})
 }
 
+func TestRunsForceExecute(t *testing.T) {
+	skipIfNotCINode(t)
+
+	client := testClient(t)
+	ctx := context.Background()
+
+	wTest, wTestCleanup := createWorkspace(t, client, nil)
+	defer wTestCleanup()
+
+	// We need to create 2 runs here:
+	// - The first run will automatically be planned so that the second
+	//   run can't be executed.
+	// - The second run will be pending until the first run is confirmed or
+	//   discarded, so we will force execute this run.
+	rToCancel, _ := createRun(t, client, wTest)
+	rTest, _ := createRun(t, client, wTest)
+
+	t.Run("user is allowed to force-execute", func(t *testing.T) {
+		assert.True(t, rTest.Permissions.CanForceExecute)
+	})
+
+	t.Run("after a force execute", func(t *testing.T) {
+		err := client.Runs.ForceExecute(ctx, rTest.ID)
+		require.NoError(t, err)
+
+		_, err = client.Runs.Read(ctx, rTest.ID)
+		require.NoError(t, err)
+
+		rc, err := client.Runs.Read(ctx, rToCancel.ID)
+		require.NoError(t, err)
+
+		t.Run("force-cancel-available-at timestamp is present", func(t *testing.T) {
+			assert.True(t, rc.ForceCancelAvailableAt.After(time.Now()))
+		})
+
+	})
+
+	t.Run("when the run does not exist", func(t *testing.T) {
+		err := client.Runs.ForceExecute(ctx, "nonexisting")
+		assert.Equal(t, err, ErrResourceNotFound)
+	})
+
+	t.Run("with invalid run ID", func(t *testing.T) {
+		err := client.Runs.ForceExecute(ctx, badIdentifier)
+		assert.EqualError(t, err, ErrInvalidRunID.Error())
+	})
+}
+
 func TestRunsDiscard(t *testing.T) {
 	skipIfNotCINode(t)
 
