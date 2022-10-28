@@ -551,19 +551,25 @@ func TestRunsForceExecute(t *testing.T) {
 		err := client.Runs.ForceExecute(ctx, rTest.ID)
 		require.NoError(t, err)
 
-		re, err := client.Runs.Read(ctx, rTest.ID)
-		require.NoError(t, err)
+		for i := 1; ; i++ {
+			rTest, err = client.Runs.Read(ctx, rTest.ID)
+			require.NoError(t, err)
 
-		t.Run("the force executed run's status is RunApplied", func(t *testing.T) {
-			assert.Equal(t, RunApplied, re.Status)
-		})
+			rToCancel, err = client.Runs.Read(ctx, rToCancel.ID)
+			require.NoError(t, err)
 
-		rc, err := client.Runs.Read(ctx, rToCancel.ID)
-		require.NoError(t, err)
+			if !rTest.StatusTimestamps.AppliedAt.IsZero() && !rToCancel.StatusTimestamps.DiscardedAt.IsZero() {
+				break
+			}
+		}
+	})
 
-		t.Run("the canceled run was discarded", func(t *testing.T) {
-			assert.Equal(t, RunDiscarded, rc.Status)
-		})
+	t.Run("the force executed run's status is RunApplied", func(t *testing.T) {
+		assert.Equal(t, RunApplied, rTest.Status)
+	})
+
+	t.Run("the canceled run was discarded", func(t *testing.T) {
+		assert.Equal(t, RunDiscarded, rToCancel.Status)
 	})
 
 	t.Run("when the run does not exist", func(t *testing.T) {
