@@ -540,7 +540,7 @@ func TestRunsForceExecute(t *testing.T) {
 	//   run can't be executed.
 	// - The second run will be pending until the first run is confirmed or
 	//   discarded, so we will force execute this run.
-	rToCancel, _ := createRun(t, client, wTest)
+	rToCancel, _ := createPlannedRun(t, client, wTest)
 	rTest, _ := createRun(t, client, wTest)
 
 	t.Run("user is allowed to force-execute", func(t *testing.T) {
@@ -561,10 +561,9 @@ func TestRunsForceExecute(t *testing.T) {
 		rc, err := client.Runs.Read(ctx, rToCancel.ID)
 		require.NoError(t, err)
 
-		t.Run("force-cancel-available-at timestamp is present", func(t *testing.T) {
-			assert.True(t, rc.ForceCancelAvailableAt.After(time.Now()))
+		t.Run("the canceled run was discarded", func(t *testing.T) {
+			assert.Equal(t, RunDiscarded, rc.Status)
 		})
-
 	})
 
 	t.Run("when the run does not exist", func(t *testing.T) {
