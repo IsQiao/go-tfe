@@ -551,8 +551,12 @@ func TestRunsForceExecute(t *testing.T) {
 		err := client.Runs.ForceExecute(ctx, rTest.ID)
 		require.NoError(t, err)
 
-		_, err = client.Runs.Read(ctx, rTest.ID)
+		re, err := client.Runs.Read(ctx, rTest.ID)
 		require.NoError(t, err)
+
+		t.Run("the force executed run's status is RunApplied", func(t *testing.T) {
+			assert.Equal(t, RunApplied, re.Status)
+		})
 
 		rc, err := client.Runs.Read(ctx, rToCancel.ID)
 		require.NoError(t, err)
