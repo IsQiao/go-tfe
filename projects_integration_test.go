@@ -11,17 +11,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//func TestProjectsList(t *testing.T) {
-//	skipIfNotCINode(t)
-//
-//	client := testClient(t)
-//	ctx := context.Background()
-//
-//	// Create your test helper resources here
-//	t.Run("test not yet implemented", func(t *testing.T) {
-//		require.NotNil(t, nil)
-//	})
-//}
+func TestProjectsList(t *testing.T) {
+	skipIfNotCINode(t)
+
+	client := testClient(t)
+	ctx := context.Background()
+
+	orgTest, orgTestCleanup := createOrganization(t, client)
+	defer orgTestCleanup()
+
+	pTest1, pTestCleanup := createProject(t, client, orgTest)
+	defer pTestCleanup()
+
+	pTest2, pTestCleanup := createProject(t, client, orgTest)
+	defer pTestCleanup()
+
+	t.Run("with invalid options", func(t *testing.T) {
+		pl, err := client.Projects.List(ctx, orgTest.Name, nil)
+		assert.Nil(t, pl)
+		assert.EqualError(t, err, ErrInvalidPagination.Error())
+	})
+
+	t.Run("with list options", func(t *testing.T) {
+		pl, err := client.Projects.List(ctx, orgTest.Name, &ProjectListOptions{
+			ListOptions: ListOptions{
+				PageNumber: 1,
+				PageSize:   100,
+			},
+		})
+		require.NoError(t, err)
+		assert.Contains(t, pl.Items, pTest1)
+		assert.Contains(t, pl.Items, pTest2)
+		assert.Equal(t, true, containsProject(pl.Items, "Default Project"))
+		assert.Equal(t, 3, len(pl.Items))
+	})
+
+	t.Run("without a valid organization", func(t *testing.T) {
+		pl, err := client.Projects.List(ctx, badIdentifier, nil)
+		assert.Nil(t, pl)
+		assert.EqualError(t, err, ErrInvalidOrg.Error())
+	})
+}
 
 func TestProjectsRead(t *testing.T) {
 	skipIfNotCINode(t)
@@ -87,13 +117,13 @@ func TestProjectsCreate(t *testing.T) {
 	})
 
 	t.Run("when options is missing name", func(t *testing.T) {
-		w, err := client.Projects.Create(ctx, "foo", ProjectCreateOptions{})
+		w, err := client.Projects.Create(ctx, orgTest.Name, ProjectCreateOptions{})
 		assert.Nil(t, w)
 		assert.EqualError(t, err, ErrRequiredName.Error())
 	})
 
 	t.Run("when options has an invalid name", func(t *testing.T) {
-		w, err := client.Projects.Create(ctx, "foo", ProjectCreateOptions{
+		w, err := client.Projects.Create(ctx, orgTest.Name, ProjectCreateOptions{
 			Name: String(badIdentifier),
 		})
 		assert.Nil(t, w)

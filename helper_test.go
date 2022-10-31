@@ -1874,7 +1874,7 @@ func createProject(t *testing.T, client *Client, org *Organization) (*Project, f
 
 	ctx := context.Background()
 	p, err := client.Projects.Create(ctx, org.Name, ProjectCreateOptions{
-		Name: String("test_project"),
+		Name: String(randomStringWithoutSpecialChar(t)),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1995,6 +1995,24 @@ func randomString(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return v
+}
+
+func randomStringWithoutSpecialChar(t *testing.T) string {
+	v, err := uuid.GenerateUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	uuidWithoutHyphens := strings.Replace(v, "-", "", -1)
+	return uuidWithoutHyphens
+}
+
+func containsProject(pl []*Project, str string) bool {
+	for _, p := range pl {
+		if p.Name == str {
+			return true
+		}
+	}
+	return false
 }
 
 func randomSemver(t *testing.T) string {
