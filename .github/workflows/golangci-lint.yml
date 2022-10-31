@@ -1,4 +1,4 @@
-name: golangci-lint
+name: Linting with golangci-lint
 on:
   push:
     branches: [ main ]
