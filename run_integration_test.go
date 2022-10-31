@@ -541,7 +541,7 @@ func TestRunsForceExecute(t *testing.T) {
 	// - The second run will be pending until the first run is confirmed or
 	//   discarded, so we will force execute this run.
 	rToCancel, _ := createPlannedRun(t, client, wTest)
-	rTest, _ := createRun(t, client, wTest)
+	rTest, _ := createRunWaitForStatus(t, client, wTest, RunPending) //createPlannedRun(t, client, wTest)
 
 	t.Run("user is allowed to force-execute", func(t *testing.T) {
 		assert.True(t, rTest.Permissions.CanForceExecute)
@@ -551,17 +551,30 @@ func TestRunsForceExecute(t *testing.T) {
 		err := client.Runs.ForceExecute(ctx, rTest.ID)
 		require.NoError(t, err)
 
-		for i := 1; ; i++ {
-			rTest, err = client.Runs.Read(ctx, rTest.ID)
-			require.NoError(t, err)
+		timeout := 2 * time.Minute
+		ctxPollRunForceExecute, _ := context.WithTimeout(ctx, timeout)
 
-			rToCancel, err = client.Runs.Read(ctx, rToCancel.ID)
-			require.NoError(t, err)
-
-			if !rTest.StatusTimestamps.AppliedAt.IsZero() && !rToCancel.StatusTimestamps.DiscardedAt.IsZero() {
-				break
-			}
+		rTest = pollRunStatus(t, client, ctxPollRunForceExecute, rTest, []RunStatus{RunApplied, RunErrored})
+		if rTest.Status == RunErrored {
+			fatalDumpRunLog(t, client, ctx, rTest)
 		}
+
+		// forced_execute_run := pollRunStatus(t, client,
+		// for i := 1; ; i++ {
+		// 	rTest, err = client.Runs.Read(ctx, rTest.ID)
+		// 	require.NoError(t, err)
+
+		// 	fmt.Printf
+		// 	t.Logf("rTest %#v", rTest)
+		// 	rToCancel, err = client.Runs.Read(ctx, rToCancel.ID)
+		// 	require.NoError(t, err)
+
+		// 	t.Logf("rToCancel: %#v", rToCancel)
+
+		// 	if !rTest.StatusTimestamps.AppliedAt.IsZero() && !rToCancel.StatusTimestamps.DiscardedAt.IsZero() {
+		// 		break
+		// 	}
+		// }
 	})
 
 	t.Run("the force executed run's status is RunApplied", func(t *testing.T) {
